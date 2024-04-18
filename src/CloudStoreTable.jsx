@@ -1,8 +1,15 @@
-import React, { useEffect, useState } from 'react';
-import './CloudStoreTable.css';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, deleteDoc, setDoc } from 'firebase/firestore';
-import MapDesign from "./MapDesign"
+import React, { useEffect, useState } from "react";
+import "./CloudStoreTable.css";
+import { initializeApp } from "firebase/app";
+import {
+  getFirestore,
+  collection,
+  getDocs,
+  doc,
+  deleteDoc,
+  setDoc,
+} from "firebase/firestore";
+// import MapDesign from "./MapDesign";
 
 const firebaseConfig = {
   apiKey: "AIzaSyDE_PTy8OPWvKCAHNCntEkCVg6JJlvrrbE",
@@ -12,78 +19,67 @@ const firebaseConfig = {
   storageBucket: "organix-898be.appspot.com",
   messagingSenderId: "270007385408",
   appId: "1:270007385408:web:bf82e67869293eb4570ea5",
-  measurementId: "G-X4E00WV895"
+  measurementId: "G-X4E00WV895",
 };
-
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
 const CloudStoreTable = () => {
   const [customerData, setCustomerData] = useState([]);
-  const [activeTab, setActiveTab] = useState('buy');
+  const [activeTab, setActiveTab] = useState("buy");
 
   const handleChangeTab = (tab) => {
     setActiveTab(tab);
   };
 
-  const handleChange = async (docId) => {
-    const querySnapshot = await getDocs(collection(db, 'userInfo'));
-    const updatedCustomerData = [];
-
-    for (const doc of querySnapshot.docs) {
-      const historyData = doc.data();
+  const handleChange = async (docId, property) => {
+    const querySnapshot = await getDocs(collection(db, "userInfo"));
+    console.log("snap", querySnapshot);
+    querySnapshot.docs.forEach((snapshot) => {
+      const historyData = snapshot.data().history;
+      console.log("hist", snapshot);
       if (historyData) {
-        const mainData = doc.data().history;
+        const updatedHistoryData = historyData.map((item) => {
+          if (item.orderId === docId) {
+            return { ...item, [property]: !item[property] };
+          } else {
+            return item;
+          }
+        });
 
-        if (mainData) {
-          const filterData = mainData.filter(docs => docs?.orderId === docId);
-          const index = mainData.findIndex(docs => docs?.orderId === docId);
-
-          mainData.forEach((dataa, ind) => {
-            if (dataa?.orderId == docId) {
-              updatedCustomerData.push(dataa);
-            }
-          });
-        }
+        const docRef = doc(db, "userInfo", snapshot.id);
+        const deletePromise = setDoc(
+          docRef,
+          { history: updatedHistoryData },
+          { merge: true }
+        );
       }
-    }
-
-    // Update only the specific entry without replacing the entire array
-    setCustomerData((prevData) => {
-      const newData = [...prevData];
-      const existingIndex = newData.findIndex((customer) => customer?.orderId === docId);
-
-      if (existingIndex !== -1) {
-        newData.splice(existingIndex, 1, ...updatedCustomerData);
-      }
-
-      return newData;
     });
+
+    getAllDataOnce();
   };
 
   const addDeleteButton = (docId) => {
     const handleDelete = async () => {
       try {
-        const querySnapshot = await getDocs(collection(db, 'userInfo'));
-        const deletePromises = [];
-
-        for (const doc of querySnapshot.docs) {
-          const historyData = doc.data().history;
-
+        const querySnapshot = await getDocs(collection(db, "userInfo"));
+        querySnapshot.docs.forEach((snapshot) => {
+          const historyData = snapshot.data().history;
           if (historyData) {
-            historyData.forEach((data) => {
-              if (data?.orderId === docId) {
-                const deletePromise = deleteDoc(doc(db, 'userInfo', `${doc.id}`, 'history', `${data?.orderId}`));
-                deletePromises.push(deletePromise);
-              }
-            });
+            const updatedHistoryData = historyData.filter(
+              (item) => item?.orderId !== docId
+            );
+
+            const docRef = doc(db, "userInfo", snapshot.id); // Get reference to the document
+            const deletePromise = setDoc(
+              docRef,
+              { history: updatedHistoryData },
+              { merge: true }
+            ); // Merge option if you want to keep other fields intact
           }
-        }
-
-        // Wait for all delete operations to complete
-        await Promise.all(deletePromises);
-
+        });
+        getAllDataOnce();
         console.log("All delete operations completed successfully");
       } catch (error) {
         console.error("Error deleting documents:", error);
@@ -92,15 +88,18 @@ const CloudStoreTable = () => {
 
     return (
       <td>
-        <button onClick={handleDelete} className="btn btn-danger">Delete</button>
+        <button onClick={handleDelete} className="btn btn-danger">
+          Delete
+        </button>
       </td>
     );
   };
 
   const getAllDataOnce = async () => {
-    const querySnapshot = await getDocs(collection(db, 'userInfo'));
+    const querySnapshot = await getDocs(collection(db, "userInfo"));
     const customers = [];
     querySnapshot.docs.forEach((doc) => {
+      console.log("doc", doc);
       const historyData = doc.data().history;
       if (historyData) {
         customers.push(...historyData);
@@ -141,24 +140,40 @@ const CloudStoreTable = () => {
               <input
                 type="checkbox"
                 checked={customer?.isAcceptedFromAdmin}
-                onChange={() => handleChange(customer?.orderId, 'isAcceptedFromAdmin')}
-                className={customer?.isAcceptedFromAdmin ? 'checkbox-true' : 'checkbox-false'}
+                onChange={() =>
+                  handleChange(customer?.orderId, "isAcceptedFromAdmin")
+                }
+                className={
+                  customer?.isAcceptedFromAdmin
+                    ? "checkbox-true"
+                    : "checkbox-false"
+                }
               />
             </td>
             <td>
               <input
                 type="checkbox"
                 checked={customer?.isCancelFromFarmer}
-                onChange={() => handleChange(customer?.orderId, 'isCancelFromFarmer')}
-                className={customer?.isCancelFromFarmer ? 'checkbox-true' : 'checkbox-false'}
+                onChange={() =>
+                  handleChange(customer?.orderId, "isCancelFromFarmer")
+                }
+                className={
+                  customer?.isCancelFromFarmer
+                    ? "checkbox-true"
+                    : "checkbox-false"
+                }
               />
             </td>
             <td>
               <input
                 type="checkbox"
                 checked={customer?.isCurrentOrder}
-                onChange={() => handleChange(customer?.orderId, 'isCurrentOrder')}
-                className={customer?.isCurrentOrder ? 'checkbox-true' : 'checkbox-false'}
+                onChange={() =>
+                  handleChange(customer?.orderId, "isCurrentOrder")
+                }
+                className={
+                  customer?.isCurrentOrder ? "checkbox-true" : "checkbox-false"
+                }
               />
             </td>
             {addDeleteButton(customer?.orderId)}
@@ -212,19 +227,25 @@ const CloudStoreTable = () => {
 
   return (
     <div>
-      <MapDesign/>
-
-      <div className='tabs'>
-        <div className={`buy ${activeTab === 'buy' ? 'active' : ''}`} onClick={() => handleChangeTab('buy')}>
+      {/* <MapDesign /> */}
+  
+      <div className="tabs">
+        <div
+          className={`buy ${activeTab === "buy" ? "active" : ""}`}
+          onClick={() => handleChangeTab("buy")}
+        >
           <p>Buy</p>
         </div>
-        <div className={`sell ${activeTab === 'sell' ? 'active' : ''}`} onClick={() => handleChangeTab('sell')}>
+        <div
+          className={`sell ${activeTab === "sell" ? "active" : ""}`}
+          onClick={() => handleChangeTab("sell")}
+        >
           <p>Sell</p>
         </div>
       </div>
-      {activeTab === 'buy' ? renderBuyTable() : renderSellTable()}
+      {activeTab === "buy" ? renderBuyTable() : renderSellTable()}
     </div>
   );
-};
-
-export default CloudStoreTable;
+  
+}
+  export default CloudStoreTable;
