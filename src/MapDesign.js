@@ -15,6 +15,6 @@ const MapDesign = () => {
       mapStyle="mapbox://styles/mapbox/streets-v9"
     />
   );
-}
+} 
 
 export default MapDesign;
